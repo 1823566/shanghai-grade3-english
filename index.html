@@ -179,9 +179,24 @@
       cursor: not-allowed;
     }
     .compare-wide { margin-top: 10px; }
+    .rating-panel { margin-top: 12px; border-radius: 8px; background: #fff9ef; border: 1px solid #f2ddad; padding: 12px; }
+    .rating-title { color: #946a12; font-size: 13px; font-weight: 950; margin-bottom: 8px; }
+    .rating-options { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+    .rate-btn {
+      border: 1px solid #f0d9a0; background: #fff; color: #8c6615; border-radius: 8px; min-height: 48px;
+      padding: 10px 8px; font-weight: 950; cursor: pointer;
+    }
+    .rate-btn.active { background: #ffe6a3; border-color: #e7b64a; color: #704d06; }
+    .rate-btn:disabled { opacity: .6; cursor: not-allowed; }
+    .rating-note { margin-top: 8px; color: #8f6f2d; font-size: 13px; line-height: 1.45; }
     .compare-tips { margin-top: 12px; border-radius: 8px; background: #eef8ff; border: 1px solid #cbe3ff; padding: 12px; color: #436280; font-size: 14px; line-height: 1.55; }
     .mic-pill { border-radius: 999px; padding: 3px 8px; background: #fff2ef; color: #ba4a3b; font-size: 12px; }
     .record-ready { color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .speaking-report { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+    .voice-stat { border-radius: 8px; border: 1px solid #d6e6ef; background: #f7fcff; padding: 10px; }
+    .voice-stat b { display: block; color: #2e6f9e; font-size: 22px; line-height: 1; margin-bottom: 5px; }
+    .voice-stat span { color: #5d7182; font-size: 12px; }
+    .voice-tip { margin-top: 10px; border-radius: 8px; background: #f8fffb; border: 1px dashed #b8d8c7; padding: 10px 12px; color: #426555; font-size: 13px; line-height: 1.5; }
     .parents { display: grid; grid-template-columns: .9fr 1.1fr; gap: 12px; }
     .report { padding: 16px; }
     .mistake-list, .badge-list { display: grid; gap: 8px; margin-top: 12px; }
@@ -199,6 +214,8 @@
       .picture { max-width: 230px; width: 70%; margin: 0 auto; }
       .lesson-list { max-height: none; overflow: visible; padding-bottom: 12px; }
       .compare-panel { grid-template-columns: 1fr; }
+      .rating-options { grid-template-columns: 1fr; }
+      .speaking-report { grid-template-columns: 1fr; }
     }
     @media (max-width: 540px) {
       .app { padding-left: 10px; padding-right: 10px; }
@@ -284,6 +301,8 @@
           <p class="topic">家长看板</p>
           <h2>学习小结</h2>
           <p class="small" id="parentSummary">还没有学习记录。</p>
+          <div class="speaking-report" id="speakingReport"></div>
+          <div class="voice-tip" id="speakingTip">跟读评分会显示在这里。</div>
           <div class="badge-list" id="badgeList"></div>
           <div class="actions">
             <button class="btn secondary" id="exportBtn">复制今日小结</button>
@@ -414,10 +433,10 @@
     const storeKey = "shanghai-2024-grade3-english-v1";
     const state = loadState();
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
-    let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false;
+    let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false, currentSpeakingRating = 0, speakingRatingLocked = false;
 
     function loadState() {
-      const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: 1, openedChests: 0 };
+      const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: 1, openedChests: 0, speakingRateTotal: 0, speakingRateCount: 0, speakingBest: 0 };
       try { return Object.assign(fallback, JSON.parse(localStorage.getItem(storeKey) || "{}")); } catch (_) { return fallback; }
     }
     function saveState() { localStorage.setItem(storeKey, JSON.stringify(state)); renderStats(); }
@@ -430,6 +449,10 @@
     }
     function level() { return Math.max(1, Math.floor(state.stars / 12) + 1); }
     function chestNow() { return state.stars % 10; }
+    function speakingAverage() {
+      if (!state.speakingRateCount) return "0.0";
+      return (state.speakingRateTotal / state.speakingRateCount).toFixed(1);
+    }
 
     function renderStats() {
       document.getElementById("stars").textContent = state.stars;
@@ -445,8 +468,9 @@
       document.getElementById("todayDesc").textContent = `Reading: ${unit.reading}。Grammar: ${unit.pattern}。完成后可得“${unit.reward}”徽章。`;
       document.getElementById("scenePlanet").textContent = `U${unit.id}`;
       const acc = state.attempts ? Math.round(state.correct / state.attempts * 100) : 100;
-      document.getElementById("parentSummary").textContent = `已完成 ${state.done.length} 个主题，累计 ${state.stars} 星、${state.coins || 0} 金币，连续学习 ${state.streak || 0} 天，正确率 ${acc}%。`;
-      renderGrid(); renderMistakes(); renderBadges();
+      const speakingText = state.speakingRateCount ? `，跟读均分 ${speakingAverage()}/3` : "";
+      document.getElementById("parentSummary").textContent = `已完成 ${state.done.length} 个主题，累计 ${state.stars} 星、${state.coins || 0} 金币，连续学习 ${state.streak || 0} 天，正确率 ${acc}%${speakingText}。`;
+      renderGrid(); renderMistakes(); renderBadges(); renderSpeakingReport();
     }
     function renderGrid() {
       const grid = document.getElementById("unitGrid");
@@ -499,6 +523,22 @@
       const mimeTypes = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
       return mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
     }
+    function renderRatingPanel(hasRecording) {
+      const options = [
+        { score: 1, label: "再练练", note: "+1 金币" },
+        { score: 2, label: "有进步", note: "+2 金币" },
+        { score: 3, label: "真棒", note: "+3 金币" }
+      ];
+      return `
+        <div class="rating-panel">
+          <div class="rating-title">跟读评分</div>
+          <div class="rating-options">
+            ${options.map(item => `<button class="rate-btn ${currentSpeakingRating === item.score ? "active" : ""}" type="button" data-rate="${item.score}" ${hasRecording && !speakingRatingLocked ? "" : "disabled"}>${item.label}<br><small>${item.note}</small></button>`).join("")}
+          </div>
+          <div class="rating-note">${hasRecording ? (speakingRatingLocked ? "本次跟读已评分，继续下一关吧。" : "家长听完后点一个分档，孩子会拿到对应金币奖励。") : "录完音后再评分，会更准确。"}${currentSpeakingRating ? ` 当前已评：${options.find(item => item.score === currentSpeakingRating)?.label || ""}` : ""}</div>
+        </div>
+      `;
+    }
     function renderComparePanel(text) {
       const hasRecording = !!lastRecordingUrl && lastRecordingText === text;
       return `
@@ -518,11 +558,12 @@
               : `<div class="record-ready">先点“录音跟读”，录完后这两个按钮会立刻可用。</div>`}
           </div>
         </div>
+        ${renderRatingPanel(hasRecording)}
         <div class="compare-tips">跟读对比小任务：先听标准音，再听自己的录音，看看开头是不是清楚，中间有没有停顿，结尾有没有读完整。</div>
       `;
     }
     function renderActivity() {
-      locked = false; selectedWords = []; speakingRewarded = false;
+      locked = false; selectedWords = []; speakingRewarded = false; currentSpeakingRating = 0; speakingRatingLocked = false;
       const activity = activities[index]; const progress = Math.round(index / activities.length * 100);
       document.getElementById("bar").style.width = progress + "%";
       document.getElementById("lessonTopic").textContent = `${currentUnit.module} · 星球 ${currentUnit.id}`;
@@ -569,6 +610,7 @@
       if (playCompareBtn) {
         playCompareBtn.addEventListener("click", () => playCompare(text));
       }
+      document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), text)));
     }
     function bindChoices(correct) {
       document.querySelectorAll(".choice").forEach(btn => btn.addEventListener("click", () => {
@@ -609,6 +651,28 @@
       const box = document.getElementById("badgeList");
       box.innerHTML = state.badges.length ? state.badges.map((name, i) => `<div class="badge-row"><b>${name}</b><span class="tag">徽章 ${i + 1}</span></div>`).join("") : `<p class="small">完成任意主题后会得到徽章。</p>`;
     }
+    function renderSpeakingReport() {
+      const report = document.getElementById("speakingReport");
+      const tip = document.getElementById("speakingTip");
+      if (!report || !tip) return;
+      const count = state.speakingRateCount || 0;
+      const avg = speakingAverage();
+      const best = state.speakingBest || 0;
+      report.innerHTML = `
+        <div class="voice-stat"><b>${count}</b><span>已评分跟读</span></div>
+        <div class="voice-stat"><b>${avg}</b><span>平均星级 / 3</span></div>
+        <div class="voice-stat"><b>${best}</b><span>最好星级 / 3</span></div>
+      `;
+      if (!count) {
+        tip.textContent = "完成一次录音后，家长点“再练练 / 有进步 / 真棒”，这里会自动生成跟读表现。";
+      } else if (Number(avg) >= 2.6) {
+        tip.textContent = "跟读表现很好，可以继续练语调和自然停顿。";
+      } else if (Number(avg) >= 1.8) {
+        tip.textContent = "跟读在进步，建议每天选 2 句做“标准音 + 我的录音”对比。";
+      } else {
+        tip.textContent = "先不追求快，重点练清楚开头音和结尾音，每句可以多录两遍。";
+      }
+    }
     function pickWords(exclude, count) { return shuffle(units.flatMap(u => u.words.map(w => w[0])).filter(w => w !== exclude)).slice(0, count); }
     function pickMeanings(exclude, count) { return shuffle(units.flatMap(u => u.words.map(w => w[1])).filter(w => w !== exclude)).slice(0, count); }
     function shuffle(arr) { const copy = arr.slice(); for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
@@ -639,6 +703,27 @@
       await speakAsync(text);
       audio.currentTime = 0;
       try { await audio.play(); } catch (_) { document.getElementById("feedback").textContent = "录音存在，但当前环境暂时不能自动播放，请点“播放我的录音”。"; }
+    }
+    function submitSpeakingRating(score, text) {
+      if (!(lastRecordingUrl && lastRecordingText === text)) {
+        document.getElementById("feedback").textContent = "先录一遍，再给跟读评分。";
+        return;
+      }
+      if (speakingRatingLocked) {
+        document.getElementById("feedback").textContent = "本次跟读已经评分，继续下一关就好。";
+        return;
+      }
+      state.speakingRateCount += 1;
+      currentSpeakingRating = score;
+      state.speakingRateTotal += score;
+      state.speakingBest = Math.max(state.speakingBest || 0, score);
+      state.coins = (state.coins || 0) + score;
+      speakingRatingLocked = true;
+      updateStreak();
+      saveState();
+      renderSpeaking(text);
+      const labels = { 1: "再练练", 2: "有进步", 3: "真棒" };
+      document.getElementById("feedback").textContent = `跟读评分：${labels[score]}，奖励 +${score} 金币。`;
     }
     async function toggleRecord() {
       const btn = document.getElementById("recordBtn");
@@ -694,7 +779,8 @@
     document.getElementById("closeModal").addEventListener("click", () => { document.getElementById("modal").classList.remove("show"); showTab("home"); });
     document.getElementById("exportBtn").addEventListener("click", () => {
       const acc = state.attempts ? Math.round(state.correct / state.attempts * 100) : 100;
-      const text = `今日英语小结：${state.stars} 星，${state.coins || 0} 金币，${state.badges.length} 个徽章，正确率 ${acc}%。`;
+      const speakingText = state.speakingRateCount ? `跟读 ${state.speakingRateCount} 次，均分 ${speakingAverage()}/3，最好 ${state.speakingBest || 0}/3。` : "今天还没有跟读评分。";
+      const text = `今日英语小结：${state.stars} 星，${state.coins || 0} 金币，${state.badges.length} 个徽章，正确率 ${acc}%。${speakingText}`;
       navigator.clipboard?.writeText(text); document.getElementById("parentSummary").textContent = text + " 已尝试复制。";
     });
     document.getElementById("resetBtn").addEventListener("click", () => { if (!confirm("确定清空当前设备上的学习进度吗？")) return; localStorage.removeItem(storeKey); location.reload(); });
