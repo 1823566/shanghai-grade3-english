@@ -32,8 +32,10 @@
         radial-gradient(circle at 90% 18%, rgba(104, 167, 232, .24), transparent 280px),
         linear-gradient(145deg, #f1fbf5 0%, #fff7e7 56%, #eff7ff 100%);
       letter-spacing: 0;
+      overscroll-behavior-y: contain;
     }
     button { font: inherit; }
+    button, .choice, .chip, .lesson-item, .tab { touch-action: manipulation; }
     .app { width: min(1080px, 100%); margin: 0 auto; padding: 16px 12px 88px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -118,7 +120,15 @@
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .tag { border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 900; background: #fff4cf; border: 1px solid #ffe1a0; color: #95640e; }
     .study-shell { display: grid; grid-template-columns: 300px 1fr; gap: 12px; }
-    .lesson-list { padding: 12px; max-height: 700px; overflow: auto; }
+    .lesson-list {
+      padding: 12px 12px 92px;
+      max-height: 700px;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      scroll-behavior: smooth;
+    }
     .lesson-item { width: 100%; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; }
     .lesson-item.active { background: #ecfaf2; border-color: var(--leaf); }
     .lesson-item b { display: block; margin-bottom: 4px; }
@@ -128,7 +138,11 @@
     .bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--mint), var(--sun)); transition: width .25s ease; }
     .flash { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center; padding: 18px; border-radius: 8px; background: var(--paper); border: 1px solid #efddad; }
     .picture { aspect-ratio: 1; border-radius: 8px; background: #fff; border: 1px solid #efdcae; display: grid; place-items: center; overflow: hidden; }
-    .pic-word { font-size: clamp(30px, 8vw, 70px); font-weight: 950; color: var(--leaf); text-align: center; padding: 8px; overflow-wrap: anywhere; }
+    .picture-stack { display: grid; gap: 8px; width: 100%; padding: 12px; justify-items: center; }
+    .q-emoji { font-size: clamp(38px, 10vw, 74px); line-height: 1; }
+    .pic-word { font-size: clamp(24px, 7vw, 54px); font-weight: 950; color: var(--leaf); text-align: center; padding: 0 8px; overflow-wrap: anywhere; }
+    .q-badge { border-radius: 999px; padding: 6px 10px; background: #fff4cf; color: #9a6508; border: 1px solid #ffe1a0; font-size: 12px; font-weight: 950; text-align: center; }
+    .q-hint { margin-top: 10px; border-radius: 8px; background: #fff; border: 1px dashed #f0c96a; padding: 10px 12px; color: #8b6512; font-size: 14px; line-height: 1.5; }
     .word { font-size: clamp(34px, 10vw, 72px); line-height: 1; font-weight: 950; overflow-wrap: anywhere; }
     .meaning { font-size: 22px; color: var(--leaf); font-weight: 950; margin-top: 8px; }
     .sentence { font-size: 18px; line-height: 1.45; color: var(--muted); margin-top: 10px; }
@@ -141,6 +155,13 @@
     .chip.used { opacity: .35; pointer-events: none; }
     .answer-line { min-height: 54px; border: 2px dashed #bcd8c9; border-radius: 8px; padding: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: #f8fffb; }
     .feedback { min-height: 30px; color: var(--leaf); font-weight: 950; }
+    .compare-panel { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 14px; }
+    .compare-card { border-radius: 8px; border: 1px solid var(--line); background: #fff; padding: 12px; }
+    .compare-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 950; color: var(--leaf); }
+    .compare-card audio { width: 100%; margin-top: 8px; }
+    .compare-tips { margin-top: 12px; border-radius: 8px; background: #eef8ff; border: 1px solid #cbe3ff; padding: 12px; color: #436280; font-size: 14px; line-height: 1.55; }
+    .mic-pill { border-radius: 999px; padding: 3px 8px; background: #fff2ef; color: #ba4a3b; font-size: 12px; }
+    .record-ready { color: var(--muted); font-size: 14px; line-height: 1.5; }
     .parents { display: grid; grid-template-columns: .9fr 1.1fr; gap: 12px; }
     .report { padding: 16px; }
     .mistake-list, .badge-list { display: grid; gap: 8px; margin-top: 12px; }
@@ -156,6 +177,8 @@
       .map { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .flash { grid-template-columns: 1fr; }
       .picture { max-width: 230px; width: 70%; margin: 0 auto; }
+      .lesson-list { max-height: none; overflow: visible; padding-bottom: 12px; }
+      .compare-panel { grid-template-columns: 1fr; }
     }
     @media (max-width: 540px) {
       .app { padding-left: 10px; padding-right: 10px; }
@@ -311,21 +334,67 @@
       ]}
     ];
 
-    const pictureText = {
-      happy: "SMILE", sad: "SAD", angry: "ANGRY", tired: "ZZ", feel: "FEEL",
-      grandfather: "GPA", grandmother: "GMA", father: "DAD", mother: "MUM", sister: "SIS", brother: "BRO", me: "ME",
-      head: "HEAD", hair: "HAIR", eye: "EYE", ear: "EAR", nose: "NOSE", mouth: "MOUTH", face: "FACE",
-      skip: "SKIP", run: "RUN", "fly a kite": "KITE", skateboard: "BOARD", "ride a bike": "BIKE",
-      milk: "MILK", juice: "JUICE", apple: "APPLE", banana: "BANANA", grape: "GRAPE", tomato: "TOMATO", carrot: "CARROT", fish: "FISH", meat: "MEAT",
-      squirrel: "SQUIRREL", rabbit: "RABBIT", cat: "CAT", mouse: "MOUSE", dog: "DOG", frog: "FROG",
-      sunny: "SUNNY", sun: "SUN", cloudy: "CLOUDY", cloud: "CLOUD", rainy: "RAINY", rain: "RAIN", windy: "WINDY", wind: "WIND",
-      cake: "CAKE", candle: "CANDLE", gift: "GIFT", "toy plane": "PLANE", doll: "DOLL", card: "CARD", noodles: "NOODLES"
+    const pictureHints = {
+      happy: { emoji: "😊", label: "笑脸宝宝", hint: "嘴角弯弯，心情亮亮。" },
+      sad: { emoji: "😢", label: "雨滴脸", hint: "眼角像挂着小雨滴。" },
+      angry: { emoji: "😠", label: "火苗脸", hint: "眉毛压低，像要喷火。" },
+      tired: { emoji: "🥱", label: "瞌睡虫", hint: "眼皮沉沉，像要打哈欠。" },
+      feel: { emoji: "💗", label: "心情表", hint: "摸摸心口，说出今天感觉。" },
+      grandfather: { emoji: "👴", label: "爷爷图卡", hint: "白头发、笑眯眯的长辈。" },
+      grandmother: { emoji: "👵", label: "奶奶图卡", hint: "温柔长辈，像家里的暖太阳。" },
+      father: { emoji: "👨", label: "爸爸图卡", hint: "家里的大人，可以说 He is my father." },
+      mother: { emoji: "👩", label: "妈妈图卡", hint: "家里的大人，可以说 She is my mother." },
+      sister: { emoji: "👧", label: "姐姐妹妹", hint: "女孩家人，用 she 来介绍。" },
+      brother: { emoji: "👦", label: "哥哥弟弟", hint: "男孩家人，用 he 来介绍。" },
+      me: { emoji: "🙋", label: "就是我", hint: "指指自己，大声说 This is me." },
+      head: { emoji: "🙂", label: "小脑袋", hint: "最上面的圆圆部分是 head。" },
+      hair: { emoji: "💇", label: "头发丝", hint: "长长短短都叫 hair。" },
+      eye: { emoji: "👀", label: "亮眼睛", hint: "一双眼睛帮助我们看世界。" },
+      ear: { emoji: "👂", label: "小耳朵", hint: "耳朵弯弯，帮助我们听声音。" },
+      nose: { emoji: "👃", label: "小鼻子", hint: "鼻子在脸中间，闻气味很厉害。" },
+      mouth: { emoji: "👄", label: "小嘴巴", hint: "嘴巴张开，可以说和唱。" },
+      face: { emoji: "🙂", label: "圆圆脸", hint: "整张脸一起就是 face。" },
+      skip: { emoji: "🪢", label: "跳绳跳", hint: "绳子甩起来，脚尖轻轻跳。" },
+      run: { emoji: "🏃", label: "快快跑", hint: "双脚像小马达，run run run。" },
+      "fly a kite": { emoji: "🪁", label: "风筝飞", hint: "线在手里，风筝在天上。" },
+      skateboard: { emoji: "🛹", label: "滑板车", hint: "脚踩板子，身体要稳稳的。" },
+      "ride a bike": { emoji: "🚲", label: "骑车去", hint: "脚踩踏板，车轮往前转。" },
+      milk: { emoji: "🥛", label: "牛奶杯", hint: "白白一杯，早餐常见。" },
+      juice: { emoji: "🧃", label: "果汁盒", hint: "吸一口，甜甜的水果味。" },
+      apple: { emoji: "🍎", label: "红苹果", hint: "圆圆红红，咬一口脆脆的。" },
+      banana: { emoji: "🍌", label: "香蕉船", hint: "弯弯像月亮，剥开就能吃。" },
+      grape: { emoji: "🍇", label: "葡萄串", hint: "一颗一颗挤在一起。" },
+      tomato: { emoji: "🍅", label: "番茄球", hint: "红红圆圆，做菜也能生吃。" },
+      carrot: { emoji: "🥕", label: "胡萝卜", hint: "橙橙尖尖，像小火箭。" },
+      fish: { emoji: "🐟", label: "小鱼儿", hint: "住在水里，尾巴摇摇。" },
+      meat: { emoji: "🍖", label: "肉肉块", hint: "吃起来香香的肉类食物。" },
+      squirrel: { emoji: "🐿️", label: "小松鼠", hint: "大尾巴翘起来，爱藏坚果。" },
+      rabbit: { emoji: "🐰", label: "小兔子", hint: "长耳朵蹦蹦跳跳。" },
+      cat: { emoji: "🐱", label: "小猫咪", hint: "胡须翘翘，喵喵叫。" },
+      mouse: { emoji: "🐭", label: "小老鼠", hint: "耳朵圆圆，动作快快。" },
+      dog: { emoji: "🐶", label: "小狗狗", hint: "尾巴摇摇，很会陪伴人。" },
+      frog: { emoji: "🐸", label: "小青蛙", hint: "会跳会游，还会呱呱叫。" },
+      sunny: { emoji: "☀️", label: "太阳天", hint: "天亮亮，适合出门玩。" },
+      sun: { emoji: "🌞", label: "太阳公公", hint: "抬头看天，金灿灿发光。" },
+      cloudy: { emoji: "☁️", label: "云朵天", hint: "天上云多，太阳躲起来。" },
+      cloud: { emoji: "🌥️", label: "软云朵", hint: "像棉花糖一样飘着。" },
+      rainy: { emoji: "🌧️", label: "下雨天", hint: "小雨点落下来，记得带伞。" },
+      rain: { emoji: "💧", label: "雨点点", hint: "听一听，滴答滴答。" },
+      windy: { emoji: "🌬️", label: "风儿吹", hint: "头发和树叶都会动起来。" },
+      wind: { emoji: "🍃", label: "风飘飘", hint: "看不见风，但能看见叶子飞。" },
+      cake: { emoji: "🎂", label: "生日蛋糕", hint: "庆祝生日时最香甜的主角。" },
+      candle: { emoji: "🕯️", label: "小蜡烛", hint: "插在蛋糕上，可以许愿。" },
+      gift: { emoji: "🎁", label: "礼物盒", hint: "系着蝴蝶结，打开有惊喜。" },
+      "toy plane": { emoji: "✈️", label: "玩具飞机", hint: "小小飞机，拿在手里飞。" },
+      doll: { emoji: "🪆", label: "娃娃朋友", hint: "可以抱着玩，也能一起过家家。" },
+      card: { emoji: "💌", label: "祝福卡", hint: "写上好话送给朋友。" },
+      noodles: { emoji: "🍜", label: "长长面条", hint: "吸溜吸溜，热乎乎一碗。" }
     };
 
     const storeKey = "shanghai-2024-grade3-english-v1";
     const state = loadState();
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
-    let recorder = null, chunks = [];
+    let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false;
 
     function loadState() {
       const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: 1, openedChests: 0 };
@@ -392,8 +461,41 @@
       const choices = unit.words.slice(1, 4).map(item => ({ type: "choice", item }));
       return [cards[0], listen[0], cards[1], choices[0], cards[2], { type: "sentence", text: unit.words[0][2] }, listen[1], cards[3], choices[1], { type: "speaking", text: unit.pattern }, listen[2], choices[2], cards[4]];
     }
+    function getPictureHint(word) {
+      return pictureHints[word] || { emoji: "✨", label: "单词图卡", hint: `看到 ${word} 时，先想它的样子或动作。` };
+    }
+    function renderPicture(word) {
+      const card = getPictureHint(word);
+      return `<div class="picture"><div class="picture-stack"><div class="q-emoji">${card.emoji}</div><div class="pic-word">${word}</div><div class="q-badge">${card.label}</div></div></div>`;
+    }
+    function renderHint(word) {
+      return `<div class="q-hint">Q版图解提示：${getPictureHint(word).hint}</div>`;
+    }
+    function getRecordingMimeType() {
+      if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+      const mimeTypes = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+      return mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
+    }
+    function renderComparePanel(text) {
+      const hasRecording = !!lastRecordingUrl && lastRecordingText === text;
+      return `
+        <div class="compare-panel">
+          <div class="compare-card">
+            <div class="compare-label"><span>标准发音</span><span class="tag">先听老师</span></div>
+            <button class="btn secondary" id="playSampleBtn">播放标准音</button>
+          </div>
+          <div class="compare-card">
+            <div class="compare-label"><span>我的跟读</span><span class="mic-pill">${hasRecording ? "已录好" : "等待录音"}</span></div>
+            ${hasRecording
+              ? `<button class="btn secondary" id="playMineBtn">播放我的录音</button><audio id="myRecordAudio" controls playsinline preload="metadata" src="${lastRecordingUrl}"></audio>`
+              : `<div class="record-ready">点下方“录音跟读”，读完后再回放，对比语速、停顿和尾音。</div>`}
+          </div>
+        </div>
+        <div class="compare-tips">跟读对比小任务：先听标准音，再听自己的录音，看看开头是不是清楚，中间有没有停顿，结尾有没有读完整。</div>
+      `;
+    }
     function renderActivity() {
-      locked = false; selectedWords = [];
+      locked = false; selectedWords = []; speakingRewarded = false;
       const activity = activities[index]; const progress = Math.round(index / activities.length * 100);
       document.getElementById("bar").style.width = progress + "%";
       document.getElementById("lessonTopic").textContent = `${currentUnit.module} · 星球 ${currentUnit.id}`;
@@ -409,16 +511,16 @@
     }
     function renderCard(item) {
       const [word, zh, sentence] = item; lastUtterance = word;
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="pic-word">${pictureText[word] || word}</div></div><div><div class="word">${word}</div><div class="meaning">${zh}</div><div class="sentence">${sentence}</div></div></div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash">${renderPicture(word)}<div><div class="word">${word}</div><div class="meaning">${zh}</div><div class="sentence">${sentence}</div>${renderHint(word)}</div></div>`;
     }
     function renderListen(item) {
       const [word, zh] = item; lastUtterance = word; const options = shuffle([word, ...pickWords(word, 3)]);
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="pic-word">LISTEN</div></div><div><div class="meaning">听音选词</div><p class="sentence">中文提示：${zh}。点“播放发音”可再听一次。</p></div></div><div class="choices" style="margin-top:12px">${options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash">${renderPicture(word)}<div><div class="meaning">听音选词</div><p class="sentence">中文提示：${zh}。点“播放发音”可以再听一次。</p>${renderHint(word)}</div></div><div class="choices" style="margin-top:12px">${options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
       bindChoices(word); setTimeout(() => speak(word), 260);
     }
     function renderChoice(item) {
       const [word, zh, sentence] = item; lastUtterance = sentence; const options = shuffle([zh, ...pickMeanings(zh, 3)]);
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="pic-word">${pictureText[word] || word}</div></div><div><div class="word">${word}</div><p class="sentence">${sentence}</p></div></div><div class="choices" style="margin-top:12px">${options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash">${renderPicture(word)}<div><div class="word">${word}</div><p class="sentence">${sentence}</p>${renderHint(word)}</div></div><div class="choices" style="margin-top:12px">${options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
       bindChoices(zh);
     }
     function renderSentence(text) {
@@ -430,7 +532,12 @@
     }
     function renderSpeaking(text) {
       lastUtterance = text;
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="pic-word">SPEAK</div></div><div><div class="meaning">跟读挑战</div><div class="word" style="font-size:38px">${text}</div><p class="sentence">先听标准发音，再录一遍。家长听完可以直接点下一关。</p></div></div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🎤</div><div class="pic-word">SPEAK</div><div class="q-badge">跟读挑战</div></div></div><div><div class="meaning">跟读挑战</div><div class="word" style="font-size:38px">${text}</div><p class="sentence">先听标准发音，再录一遍。家长可以和孩子一起听，比一比谁更像老师。</p></div></div>${renderComparePanel(text)}`;
+      document.getElementById("playSampleBtn").addEventListener("click", () => speak(text));
+      const playMineBtn = document.getElementById("playMineBtn");
+      if (playMineBtn) {
+        playMineBtn.addEventListener("click", () => document.getElementById("myRecordAudio")?.play?.());
+      }
     }
     function bindChoices(correct) {
       document.querySelectorAll(".choice").forEach(btn => btn.addEventListener("click", () => {
@@ -483,11 +590,35 @@
       if (recorder && recorder.state === "recording") { recorder.stop(); btn.textContent = "录音跟读"; return; }
       if (!navigator.mediaDevices || !window.MediaRecorder) { document.getElementById("feedback").textContent = "当前环境不支持网页录音，请家长直接听孩子跟读。"; return; }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); chunks = []; recorder = new MediaRecorder(stream);
-        recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = () => { const blob = new Blob(chunks, { type: "audio/webm" }); const url = URL.createObjectURL(blob); document.getElementById("feedback").innerHTML = `已录好：<audio controls src="${url}"></audio>`; state.stars += 1; state.coins = (state.coins || 0) + 2; openChestIfNeeded(); updateStreak(); saveState(); stream.getTracks().forEach(track => track.stop()); };
-        recorder.start(); btn.textContent = "停止录音"; document.getElementById("feedback").textContent = "正在录音，读完后点停止。";
-      } catch (_) { document.getElementById("feedback").textContent = "没有拿到麦克风权限，可以先改成家长听读。"; }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = getRecordingMimeType();
+        chunks = [];
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+        recorder.onstop = () => {
+          const blobType = recorder.mimeType || mimeType || "audio/webm";
+          const blob = new Blob(chunks, { type: blobType });
+          if (lastRecordingUrl) URL.revokeObjectURL(lastRecordingUrl);
+          lastRecordingUrl = URL.createObjectURL(blob);
+          lastRecordingText = lastUtterance;
+          document.getElementById("feedback").textContent = "录音完成，可以播放并和标准发音对比。";
+          if (!speakingRewarded) {
+            state.stars += 1;
+            state.coins = (state.coins || 0) + 2;
+            speakingRewarded = true;
+            openChestIfNeeded();
+            updateStreak();
+            saveState();
+          }
+          if (activities[index]?.type === "speaking") renderSpeaking(lastUtterance);
+          stream.getTracks().forEach(track => track.stop());
+        };
+        recorder.start();
+        btn.textContent = "停止录音";
+        document.getElementById("feedback").textContent = "正在录音，读完后点停止。";
+      } catch (_) {
+        document.getElementById("feedback").textContent = "没有拿到麦克风权限，可以先让家长听读。";
+      }
     }
     function showTab(id) {
       document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === id));
@@ -511,3 +642,4 @@
   </script>
 </body>
 </html>
+
