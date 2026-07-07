@@ -171,6 +171,13 @@
     .compare-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
     .compare-actions.single { grid-template-columns: 1fr; }
     .compare-actions .btn { width: 100%; min-height: 42px; }
+    .compare-actions .btn:disabled {
+      background: #f3f6f4;
+      color: #97a4ad;
+      border: 1px solid #d5dfd8;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
     .compare-wide { margin-top: 10px; }
     .compare-tips { margin-top: 12px; border-radius: 8px; background: #eef8ff; border: 1px solid #cbe3ff; padding: 12px; color: #436280; font-size: 14px; line-height: 1.55; }
     .mic-pill { border-radius: 999px; padding: 3px 8px; background: #fff2ef; color: #ba4a3b; font-size: 12px; }
@@ -502,9 +509,13 @@
           </div>
           <div class="compare-card">
             <div class="compare-label"><span>我的跟读</span><span class="mic-pill">${hasRecording ? "已录好" : "等待录音"}</span></div>
+            <div class="compare-actions">
+              <button class="btn secondary" id="playMineBtn" ${hasRecording ? "" : "disabled"}>播放我的录音</button>
+              <button class="btn secondary" id="playCompareBtn" ${hasRecording ? "" : "disabled"}>对比播放</button>
+            </div>
             ${hasRecording
-              ? `<div class="compare-actions"><button class="btn secondary" id="playMineBtn">播放我的录音</button><button class="btn secondary" id="playCompareBtn">对比播放</button></div><audio id="myRecordAudio" controls playsinline preload="metadata" src="${lastRecordingUrl}"></audio>`
-              : `<div class="record-ready">点下方“录音跟读”，读完后再回放，对比语速、停顿和尾音。</div>`}
+              ? `<audio id="myRecordAudio" controls playsinline preload="metadata" src="${lastRecordingUrl}"></audio>`
+              : `<div class="record-ready">先点“录音跟读”，录完后这两个按钮会立刻可用。</div>`}
           </div>
         </div>
         <div class="compare-tips">跟读对比小任务：先听标准音，再听自己的录音，看看开头是不是清楚，中间有没有停顿，结尾有没有读完整。</div>
