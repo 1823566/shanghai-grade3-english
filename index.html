@@ -192,6 +192,12 @@
     .compare-tips { margin-top: 12px; border-radius: 8px; background: #eef8ff; border: 1px solid #cbe3ff; padding: 12px; color: #436280; font-size: 14px; line-height: 1.55; }
     .mic-pill { border-radius: 999px; padding: 3px 8px; background: #fff2ef; color: #ba4a3b; font-size: 12px; }
     .record-ready { color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .speaking-dock { margin-top: 6px; padding-top: 14px; border-top: 1px dashed #cfe2d8; }
+    .speaking-dock-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .speaking-dock-title { color: var(--leaf); font-size: 15px; font-weight: 950; }
+    .speaking-dock .word { font-size: clamp(22px, 6vw, 34px); }
+    .dock-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+    .dock-actions .btn { width: 100%; min-height: 42px; }
     .speaking-report { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
     .voice-stat { border-radius: 8px; border: 1px solid #d6e6ef; background: #f7fcff; padding: 10px; }
     .voice-stat b { display: block; color: #2e6f9e; font-size: 22px; line-height: 1; margin-bottom: 5px; }
@@ -215,6 +221,7 @@
       .lesson-list { max-height: none; overflow: visible; padding-bottom: 12px; }
       .compare-panel { grid-template-columns: 1fr; }
       .rating-options { grid-template-columns: 1fr; }
+      .dock-actions { grid-template-columns: 1fr; }
       .speaking-report { grid-template-columns: 1fr; }
     }
     @media (max-width: 540px) {
@@ -291,6 +298,7 @@
             <button class="btn secondary" id="recordBtn">录音跟读</button>
             <button class="btn" id="nextBtn">下一关</button>
           </div>
+          <section class="speaking-dock" id="speakingDock"></section>
         </section>
       </div>
     </section>
@@ -434,12 +442,23 @@
     const state = loadState();
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
     let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false, currentSpeakingRating = 0, speakingRatingLocked = false;
+    function speakingText() { return currentUnit.pattern; }
 
     function loadState() {
       const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: 1, openedChests: 0, speakingRateTotal: 0, speakingRateCount: 0, speakingBest: 0 };
       try { return Object.assign(fallback, JSON.parse(localStorage.getItem(storeKey) || "{}")); } catch (_) { return fallback; }
     }
     function saveState() { localStorage.setItem(storeKey, JSON.stringify(state)); renderStats(); }
+    function resetSpeakingState() {
+      currentSpeakingRating = 0;
+      speakingRatingLocked = false;
+      speakingRewarded = false;
+      lastRecordingText = "";
+      if (lastRecordingUrl) {
+        URL.revokeObjectURL(lastRecordingUrl);
+        lastRecordingUrl = "";
+      }
+    }
     function todayKey() { const d = new Date(); return [d.getFullYear(), d.getMonth() + 1, d.getDate()].join("-"); }
     function updateStreak() {
       const key = todayKey(); if (state.lastDate === key) return;
@@ -496,6 +515,7 @@
     }
     function startUnit(unitId) {
       currentUnit = units.find(u => u.id === unitId) || units[0];
+      resetSpeakingState();
       activities = buildActivities(currentUnit); index = 0; state.todayUnit = currentUnit.id; saveState();
       showTab("study"); renderLessonList(); renderActivity();
     }
@@ -562,8 +582,35 @@
         <div class="compare-tips">跟读对比小任务：先听标准音，再听自己的录音，看看开头是不是清楚，中间有没有停顿，结尾有没有读完整。</div>
       `;
     }
+    function renderSpeakingDock() {
+      const text = speakingText();
+      const dock = document.getElementById("speakingDock");
+      if (!dock) return;
+      dock.innerHTML = `
+        <div class="speaking-dock-head">
+          <div class="speaking-dock-title">固定跟读台</div>
+          <span class="tag">当前单元句型</span>
+        </div>
+        <div class="word">${text}</div>
+        ${renderSentenceWithSpeaker(text, text)}
+        <div class="dock-actions">
+          <button class="btn secondary" id="dockPlayBtn">播放句子</button>
+          <button class="btn" id="dockRecordBtn">${recorder && recorder.state === "recording" ? "停止录音" : "录音跟读"}</button>
+        </div>
+        ${renderComparePanel(text)}
+      `;
+      document.getElementById("dockPlayBtn").addEventListener("click", () => speak(text));
+      document.getElementById("dockRecordBtn").addEventListener("click", () => toggleRecord(text, "dockRecordBtn"));
+      const playSampleBtn = document.getElementById("playSampleBtn");
+      if (playSampleBtn) playSampleBtn.addEventListener("click", () => speak(text));
+      const playMineBtn = document.getElementById("playMineBtn");
+      if (playMineBtn) playMineBtn.addEventListener("click", () => document.getElementById("myRecordAudio")?.play?.());
+      const playCompareBtn = document.getElementById("playCompareBtn");
+      if (playCompareBtn) playCompareBtn.addEventListener("click", () => playCompare(text));
+      document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), text)));
+    }
     function renderActivity() {
-      locked = false; selectedWords = []; speakingRewarded = false; currentSpeakingRating = 0; speakingRatingLocked = false;
+      locked = false; selectedWords = [];
       const activity = activities[index]; const progress = Math.round(index / activities.length * 100);
       document.getElementById("bar").style.width = progress + "%";
       document.getElementById("lessonTopic").textContent = `${currentUnit.module} · 星球 ${currentUnit.id}`;
@@ -576,6 +623,7 @@
       if (activity.type === "choice") renderChoice(activity.item);
       if (activity.type === "sentence") renderSentence(activity.text);
       if (activity.type === "speaking") renderSpeaking(activity.text);
+      renderSpeakingDock();
     }
     function renderCard(item) {
       const [word, zh, sentence] = item; lastUtterance = word;
@@ -600,17 +648,7 @@
     }
     function renderSpeaking(text) {
       lastUtterance = text;
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🎤</div><div class="pic-word">SPEAK</div><div class="q-badge">跟读挑战</div></div></div><div><div class="meaning">跟读挑战</div><div class="word" style="font-size:38px">${text}</div>${renderSentenceWithSpeaker(text, text)}<p class="sentence">先听标准发音，再录一遍。家长可以和孩子一起听，比一比谁更像老师。</p></div></div>${renderComparePanel(text)}`;
-      document.getElementById("playSampleBtn").addEventListener("click", () => speak(text));
-      const playMineBtn = document.getElementById("playMineBtn");
-      if (playMineBtn) {
-        playMineBtn.addEventListener("click", () => document.getElementById("myRecordAudio")?.play?.());
-      }
-      const playCompareBtn = document.getElementById("playCompareBtn");
-      if (playCompareBtn) {
-        playCompareBtn.addEventListener("click", () => playCompare(text));
-      }
-      document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), text)));
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🎤</div><div class="pic-word">SPEAK</div><div class="q-badge">跟读挑战</div></div></div><div><div class="meaning">跟读挑战</div><div class="word" style="font-size:38px">${text}</div>${renderSentenceWithSpeaker(text, text)}<p class="sentence">下方固定跟读台里可以直接播放、录音、对比播放和评分。</p></div></div>`;
     }
     function bindChoices(correct) {
       document.querySelectorAll(".choice").forEach(btn => btn.addEventListener("click", () => {
@@ -721,13 +759,21 @@
       speakingRatingLocked = true;
       updateStreak();
       saveState();
-      renderSpeaking(text);
+      renderSpeakingDock();
+      if (activities[index]?.type === "speaking") renderSpeaking(text);
       const labels = { 1: "再练练", 2: "有进步", 3: "真棒" };
       document.getElementById("feedback").textContent = `跟读评分：${labels[score]}，奖励 +${score} 金币。`;
     }
-    async function toggleRecord() {
-      const btn = document.getElementById("recordBtn");
-      if (recorder && recorder.state === "recording") { recorder.stop(); btn.textContent = "录音跟读"; return; }
+    async function toggleRecord(targetText = speakingText(), buttonId = "recordBtn") {
+      const btn = document.getElementById(buttonId);
+      lastUtterance = targetText;
+      if (recorder && recorder.state === "recording") {
+        recorder.stop();
+        if (btn) btn.textContent = "录音跟读";
+        const dockBtn = document.getElementById("dockRecordBtn");
+        if (dockBtn) dockBtn.textContent = "录音跟读";
+        return;
+      }
       if (!navigator.mediaDevices || !window.MediaRecorder) { document.getElementById("feedback").textContent = "当前环境不支持网页录音，请家长直接听孩子跟读。"; return; }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -750,11 +796,14 @@
             updateStreak();
             saveState();
           }
+          renderSpeakingDock();
           if (activities[index]?.type === "speaking") renderSpeaking(lastUtterance);
           stream.getTracks().forEach(track => track.stop());
         };
         recorder.start();
-        btn.textContent = "停止录音";
+        if (btn) btn.textContent = "停止录音";
+        const dockBtn = document.getElementById("dockRecordBtn");
+        if (dockBtn) dockBtn.textContent = "停止录音";
         document.getElementById("feedback").textContent = "正在录音，读完后点停止。";
       } catch (_) {
         document.getElementById("feedback").textContent = "没有拿到麦克风权限，可以先让家长听读。";
