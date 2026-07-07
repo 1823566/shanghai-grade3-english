@@ -1,2 +1,25 @@
-# grade3-english-star-planet
-Shanghai grade 3 English learning web app
+# 三上英语星球闯关
+
+适配信息：上海教育出版社，2024 年 8 月第一版，主编张春柏、施嘉平。
+
+## 打开方式
+
+双击 `start-web.bat`，浏览器会自动打开：
+
+```text
+http://127.0.0.1:8765/
+```
+
+如果电脑提示找不到 Python，也可以直接双击 `index.html` 预览。
+
+## 本版特点
+
+- 更趣味的星球闯关首页。
+- 星星、金币、等级、宝箱、徽章奖励机制。
+- 单词卡、听音选词、看词选义、句子拼图、跟读录音。
+- 家长看板、错词本、今日小结。
+- 已按目录页同步 8 个 Big Question 的单元标题、Words、Reading、Grammar、Listening、Speaking、Writing、Extend。
+
+## 内容说明
+
+已根据目录页同步课程框架。练习句子仍为原创示例，不复制教材课文、插图或音频，适合自家孩子做预习、复习和趣味闯关。
