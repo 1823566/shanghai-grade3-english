@@ -198,6 +198,14 @@
     .speaking-dock .word { font-size: clamp(22px, 6vw, 34px); }
     .dock-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 12px; }
     .dock-actions .btn { width: 100%; min-height: 42px; }
+    .alphabet-board { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+    .alphabet-tile { border-radius: 8px; border: 1px solid #d8e7f3; background: #fff; padding: 12px; text-align: center; }
+    .alphabet-letter { font-size: 26px; font-weight: 950; color: #2f6d9a; line-height: 1; }
+    .alphabet-word { margin-top: 8px; font-size: 14px; color: #516779; line-height: 1.4; }
+    .alphabet-word b { color: var(--ink); }
+    .alphabet-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .letter-pill { min-width: 54px; border-radius: 999px; border: 1px solid #d4e0ea; background: #fff; padding: 8px 10px; text-align: center; font-weight: 950; color: #42617b; }
+    .letter-pill small { display: block; color: #7e92a5; font-size: 11px; margin-top: 2px; }
     .speaking-report { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
     .voice-stat { border-radius: 8px; border: 1px solid #d6e6ef; background: #f7fcff; padding: 10px; }
     .voice-stat b { display: block; color: #2e6f9e; font-size: 22px; line-height: 1; margin-bottom: 5px; }
@@ -222,6 +230,7 @@
       .compare-panel { grid-template-columns: 1fr; }
       .rating-options { grid-template-columns: 1fr; }
       .dock-actions { grid-template-columns: 1fr; }
+      .alphabet-board { grid-template-columns: 1fr; }
       .speaking-report { grid-template-columns: 1fr; }
     }
     @media (max-width: 540px) {
@@ -354,7 +363,20 @@
   </div>
 
   <script>
+    const alphabetPack = [
+      ["A", "a", "apple", "苹果", "🍎"], ["B", "b", "bird", "小鸟", "🐦"], ["C", "c", "cat", "小猫", "🐱"],
+      ["D", "d", "dog", "小狗", "🐶"], ["E", "e", "egg", "鸡蛋", "🥚"], ["F", "f", "fish", "小鱼", "🐟"],
+      ["G", "g", "gift", "礼物", "🎁"], ["H", "h", "hand", "小手", "✋"], ["I", "i", "ice cream", "冰激凌", "🍦"],
+      ["J", "j", "juice", "果汁", "🧃"], ["K", "k", "kite", "风筝", "🪁"], ["L", "l", "lion", "狮子", "🦁"],
+      ["M", "m", "milk", "牛奶", "🥛"], ["N", "n", "nose", "鼻子", "👃"], ["O", "o", "orange", "橙子", "🍊"],
+      ["P", "p", "pig", "小猪", "🐷"], ["Q", "q", "queen", "女王", "👑"], ["R", "r", "rabbit", "兔子", "🐰"],
+      ["S", "s", "sun", "太阳", "☀️"], ["T", "t", "tree", "大树", "🌳"], ["U", "u", "umbrella", "雨伞", "☂️"],
+      ["V", "v", "van", "小车", "🚐"], ["W", "w", "wind", "风", "🍃"], ["X", "x", "box", "盒子", "📦"],
+      ["Y", "y", "yo-yo", "悠悠球", "🪀"], ["Z", "z", "zebra", "斑马", "🦓"]
+    ];
+
     const units = [
+      { id: "alpha", module: "Foundation", title: "Letters and Sounds", zh: "字母基础打底", reading: "A to Z", listening: "Alphabet chant", speaking: "Say the letters", writing: "Trace the letters", extend: "Find letters around you", pattern: "A a / B b / C c", reward: "字母启明星", letters: alphabetPack, words: alphabetPack.map(item => [`${item[0]} ${item[1]}`, item[3], `${item[0]} is for ${item[2]}.`]) },
       { id: 1, module: "Big Question 1", title: "How do we feel?", zh: "我们感觉怎么样？", reading: "How are you?", listening: "Li Chen's day", speaking: "Some children's feelings", writing: "Your feelings", extend: "A thirsty bird", pattern: "How are you? I am ...", reward: "情绪表达星", words: [
         ["happy", "开心的", "I am happy."], ["sad", "伤心的", "I am sad."], ["angry", "生气的", "I am angry."], ["tired", "疲惫的", "I am tired."], ["feel", "感觉", "How do you feel today?"]
       ]},
@@ -443,9 +465,18 @@
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
     let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false, currentSpeakingRating = 0, speakingRatingLocked = false;
     function speakingText() { return currentUnit.pattern; }
+    function getUnitById(unitId) { return units.find(u => String(u.id) === String(unitId)); }
+    function getUnitIndex(unitId) { return units.findIndex(u => String(u.id) === String(unitId)); }
+    function getDisplayUnitId(unit) { return unit.id === "alpha" ? "基础" : unit.id; }
+    function getSceneLabel(unit) { return unit.id === "alpha" ? "ABC" : `U${unit.id}`; }
+    function getUnitCountLabel(unit) { return unit.letters ? `${unit.letters.length} 个字母` : `${unit.words.length} 个词`; }
+    function getSuggestedUnit() {
+      if (!state.done.includes("alpha")) return getUnitById("alpha") || units[0];
+      return getUnitById(state.todayUnit) || units[0];
+    }
 
     function loadState() {
-      const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: 1, openedChests: 0, speakingRateTotal: 0, speakingRateCount: 0, speakingBest: 0 };
+      const fallback = { stars: 0, coins: 0, done: [], badges: [], mistakes: {}, attempts: 0, correct: 0, lastDate: "", streak: 0, todayUnit: "alpha", openedChests: 0, speakingRateTotal: 0, speakingRateCount: 0, speakingBest: 0 };
       try { return Object.assign(fallback, JSON.parse(localStorage.getItem(storeKey) || "{}")); } catch (_) { return fallback; }
     }
     function saveState() { localStorage.setItem(storeKey, JSON.stringify(state)); renderStats(); }
@@ -481,11 +512,11 @@
       document.getElementById("starPill").textContent = `${state.stars} 星 · ${state.coins || 0} 金币`;
       document.getElementById("chestText").textContent = `宝箱进度 ${chestNow()}/10`;
       document.getElementById("chestFill").style.width = `${chestNow() * 10}%`;
-      const unit = units[(state.todayUnit - 1) % units.length];
+      const unit = getSuggestedUnit();
       document.getElementById("todayTopic").textContent = `${unit.module} · ${unit.zh}`;
       document.getElementById("todayTitle").textContent = unit.title;
       document.getElementById("todayDesc").textContent = `Reading: ${unit.reading}。Grammar: ${unit.pattern}。完成后可得“${unit.reward}”徽章。`;
-      document.getElementById("scenePlanet").textContent = `U${unit.id}`;
+      document.getElementById("scenePlanet").textContent = getSceneLabel(unit);
       const acc = state.attempts ? Math.round(state.correct / state.attempts * 100) : 100;
       const speakingText = state.speakingRateCount ? `，跟读均分 ${speakingAverage()}/3` : "";
       document.getElementById("parentSummary").textContent = `已完成 ${state.done.length} 个主题，累计 ${state.stars} 星、${state.coins || 0} 金币，连续学习 ${state.streak || 0} 天，正确率 ${acc}%${speakingText}。`;
@@ -495,31 +526,45 @@
       const grid = document.getElementById("unitGrid");
       grid.innerHTML = units.map(unit => `
         <article class="panel unit-card ${state.done.includes(unit.id) ? "done" : ""}" data-unit="${unit.id}">
-          <div class="unit-num">${unit.module} · 星球 ${unit.id}</div>
+          <div class="unit-num">${unit.module} · ${unit.id === "alpha" ? "第一部分" : `星球 ${getDisplayUnitId(unit)}`}</div>
           <div class="unit-title">${unit.title}</div>
           <p class="small">${unit.zh}</p>
           <p class="small" style="margin-top:6px">Reading: ${unit.reading}</p>
-          <div class="tags"><span class="tag">${unit.words.length} 个词</span><span class="tag">Grammar</span><span class="tag">${unit.reward}</span></div>
+          <div class="tags"><span class="tag">${getUnitCountLabel(unit)}</span><span class="tag">Grammar</span><span class="tag">${unit.reward}</span></div>
         </article>
       `).join("");
-      grid.querySelectorAll(".unit-card").forEach(card => card.addEventListener("click", () => startUnit(Number(card.dataset.unit))));
+      grid.querySelectorAll(".unit-card").forEach(card => card.addEventListener("click", () => startUnit(card.dataset.unit)));
     }
     function renderLessonList() {
       const list = document.getElementById("lessonList");
       list.innerHTML = units.map(unit => `
         <button class="lesson-item ${unit.id === currentUnit.id ? "active" : ""}" data-unit="${unit.id}">
-          <b>星球 ${unit.id} · ${unit.title}</b><span>Reading: ${unit.reading} · Grammar: ${unit.pattern}</span>
+          <b>${unit.id === "alpha" ? "第一部分 · 字母基础" : `星球 ${getDisplayUnitId(unit)} · ${unit.title}`}</b><span>Reading: ${unit.reading} · Grammar: ${unit.pattern}</span>
         </button>
       `).join("");
-      list.querySelectorAll(".lesson-item").forEach(btn => btn.addEventListener("click", () => startUnit(Number(btn.dataset.unit))));
+      list.querySelectorAll(".lesson-item").forEach(btn => btn.addEventListener("click", () => startUnit(btn.dataset.unit)));
     }
     function startUnit(unitId) {
-      currentUnit = units.find(u => u.id === unitId) || units[0];
+      currentUnit = getUnitById(unitId) || units[0];
       resetSpeakingState();
       activities = buildActivities(currentUnit); index = 0; state.todayUnit = currentUnit.id; saveState();
       showTab("study"); renderLessonList(); renderActivity();
     }
     function buildActivities(unit) {
+      if (unit.id === "alpha") {
+        return [
+          { type: "alphabet-board", letters: unit.letters.slice(0, 6), title: "先认识 A 到 F" },
+          { type: "alphabet-match", upper: "A", lower: "a", options: ["a", "e", "g", "d"], word: "apple", emoji: "🍎" },
+          { type: "alphabet-board", letters: unit.letters.slice(6, 12), title: "再认识 G 到 L" },
+          { type: "alphabet-match", upper: "M", lower: "m", options: ["n", "m", "w", "h"], word: "milk", emoji: "🥛" },
+          { type: "alphabet-board", letters: unit.letters.slice(12, 18), title: "继续认识 M 到 R" },
+          { type: "alphabet-order", letters: ["A", "B", "C", "D", "E"] },
+          { type: "alphabet-board", letters: unit.letters.slice(18, 26), title: "最后认识 S 到 Z" },
+          { type: "alphabet-sound", letter: "C", lower: "c", word: "cat", zh: "小猫", emoji: "🐱" },
+          { type: "alphabet-order", letters: ["X", "Y", "Z"] },
+          { type: "speaking", text: unit.pattern }
+        ];
+      }
       const cards = unit.words.map(item => ({ type: "card", item }));
       const listen = unit.words.slice(0, 3).map(item => ({ type: "listen", item }));
       const choices = unit.words.slice(1, 4).map(item => ({ type: "choice", item }));
@@ -609,6 +654,33 @@
       if (playCompareBtn) playCompareBtn.addEventListener("click", () => playCompare(text));
       document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), text)));
     }
+    function renderAlphabetBoard(activity) {
+      const board = activity.letters.map(item => `
+        <div class="alphabet-tile">
+          <div class="alphabet-letter">${item[0]} ${item[1]}</div>
+          <div class="alphabet-word">${item[4]} <b>${item[2]}</b><br>${item[3]}</div>
+        </div>
+      `).join("");
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🔤</div><div class="pic-word">ABC</div><div class="q-badge">${activity.title}</div></div></div><div><div class="meaning">字母观察站</div><p class="sentence">先看大写和小写，再读读右边的小单词。</p><div class="alphabet-board">${board}</div></div></div>`;
+    }
+    function renderAlphabetMatch(activity) {
+      lastUtterance = `${activity.upper} ${activity.lower}`;
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.upper}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">大小写配对</div><div class="word">${activity.upper}</div><p class="sentence">哪一个小写字母和 ${activity.upper} 是一对？</p><div class="q-hint">小提示：${activity.upper} is for ${activity.word}.</div></div></div><div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
+      bindChoices(activity.lower);
+    }
+    function renderAlphabetOrder(activity) {
+      lastUtterance = activity.letters.join(" ");
+      const shuffled = shuffle(activity.letters);
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🧩</div><div class="pic-word">${activity.letters[0]}...</div><div class="q-badge">字母排排队</div></div></div><div><div class="meaning">字母顺序练习</div><p class="sentence">把字母按顺序排好：${activity.letters.join(" - ")}</p></div></div><div class="answer-line" id="answerLine" style="margin-top:12px"></div><div class="chips" style="margin-top:12px">${shuffled.map((w, i) => `<button class="chip" data-word="${w}" data-index="${i}">${w}</button>`).join("")}</div><div class="actions"><button class="btn secondary" id="clearSentence">重排</button><button class="btn sun" id="checkSentence">检查</button></div>`;
+      selectedWords = [];
+      document.querySelectorAll(".chip").forEach(chip => chip.addEventListener("click", () => { selectedWords.push(chip.dataset.word); chip.classList.add("used"); document.getElementById("answerLine").innerHTML = selectedWords.map(w => `<span class="tag">${w}</span>`).join(""); }));
+      document.getElementById("clearSentence").addEventListener("click", () => { selectedWords = []; document.getElementById("answerLine").innerHTML = ""; document.querySelectorAll(".chip").forEach(chip => chip.classList.remove("used")); document.getElementById("feedback").textContent = ""; });
+      document.getElementById("checkSentence").addEventListener("click", () => { const ok = selectedWords.join(" ") === activity.letters.join(" "); recordAnswer(ok, activity.letters.join("")); document.getElementById("feedback").textContent = ok ? "字母顺序对啦。" : "再看一眼字母顺序。"; });
+    }
+    function renderAlphabetSound(activity) {
+      lastUtterance = `${activity.letter} ${activity.lower} ${activity.word}`;
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div></div></div>`;
+    }
     function renderActivity() {
       locked = false; selectedWords = [];
       const activity = activities[index]; const progress = Math.round(index / activities.length * 100);
@@ -618,6 +690,10 @@
       document.getElementById("lessonScope").textContent = `Reading: ${currentUnit.reading} · Listening: ${currentUnit.listening} · Speaking: ${currentUnit.speaking} · Writing: ${currentUnit.writing} · Extend: ${currentUnit.extend}`;
       document.getElementById("feedback").textContent = "";
       document.getElementById("nextBtn").textContent = index >= activities.length - 1 ? "完成并开奖励" : "下一关";
+      if (activity.type === "alphabet-board") renderAlphabetBoard(activity);
+      if (activity.type === "alphabet-match") renderAlphabetMatch(activity);
+      if (activity.type === "alphabet-order") renderAlphabetOrder(activity);
+      if (activity.type === "alphabet-sound") renderAlphabetSound(activity);
       if (activity.type === "card") renderCard(activity.item);
       if (activity.type === "listen") renderListen(activity.item);
       if (activity.type === "choice") renderChoice(activity.item);
@@ -674,8 +750,9 @@
       if (!state.done.includes(currentUnit.id)) state.done.push(currentUnit.id);
       if (!state.badges.includes(currentUnit.reward)) state.badges.push(currentUnit.reward);
       state.stars += 3; state.coins = (state.coins || 0) + 8; openChestIfNeeded(); updateStreak();
-      state.todayUnit = currentUnit.id % units.length + 1; saveState();
-      document.getElementById("modalBadge").textContent = `U${currentUnit.id}`;
+      const nextIndex = (getUnitIndex(currentUnit.id) + 1) % units.length;
+      state.todayUnit = units[nextIndex].id; saveState();
+      document.getElementById("modalBadge").textContent = getSceneLabel(currentUnit);
       document.getElementById("modalTitle").textContent = `获得“${currentUnit.reward}”`;
       document.getElementById("modalText").textContent = `完成 ${currentUnit.title}，奖励 +3 星、+8 金币。下一个星球已经解锁。`;
       document.getElementById("modal").classList.add("show");
@@ -815,7 +892,7 @@
       if (id === "study") renderLessonList(); if (id === "parents") renderStats();
     }
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => showTab(tab.dataset.tab)));
-    document.getElementById("startToday").addEventListener("click", () => startUnit(state.todayUnit || 1));
+    document.getElementById("startToday").addEventListener("click", () => startUnit(getSuggestedUnit().id));
     document.getElementById("reviewMistakes").addEventListener("click", () => showTab("parents"));
     document.getElementById("activity").addEventListener("click", e => {
       const btn = e.target.closest("[data-speak]");
@@ -833,7 +910,7 @@
       navigator.clipboard?.writeText(text); document.getElementById("parentSummary").textContent = text + " 已尝试复制。";
     });
     document.getElementById("resetBtn").addEventListener("click", () => { if (!confirm("确定清空当前设备上的学习进度吗？")) return; localStorage.removeItem(storeKey); location.reload(); });
-    renderStats(); startUnit(state.todayUnit || 1); showTab("home");
+    renderStats(); startUnit(getSuggestedUnit().id); showTab("home");
   </script>
 </body>
 </html>
