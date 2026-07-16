@@ -203,6 +203,8 @@
     .alphabet-letter { font-size: 26px; font-weight: 950; color: #2f6d9a; line-height: 1; }
     .alphabet-word { margin-top: 8px; font-size: 14px; color: #516779; line-height: 1.4; }
     .alphabet-word b { color: var(--ink); }
+    .alphabet-audio { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; margin-top: 10px; }
+    .alphabet-audio .icon-speak { width: 100%; min-width: 0; border-radius: 8px; font-size: 13px; height: 36px; }
     .alphabet-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .letter-pill { min-width: 54px; border-radius: 999px; border: 1px solid #d4e0ea; background: #fff; padding: 8px 10px; text-align: center; font-weight: 950; color: #42617b; }
     .letter-pill small { display: block; color: #7e92a5; font-size: 11px; margin-top: 2px; }
@@ -464,7 +466,8 @@
     const state = loadState();
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
     let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false, currentSpeakingRating = 0, speakingRatingLocked = false;
-    function speakingText() { return currentUnit.pattern; }
+    let currentAlphabetSample = { letter: "A", lower: "a", word: "apple", zh: "苹果", emoji: "🍎" };
+    function speakingText() { return currentUnit.id === "alpha" ? currentAlphabetSample.letter : currentUnit.pattern; }
     function getUnitById(unitId) { return units.find(u => String(u.id) === String(unitId)); }
     function getUnitIndex(unitId) { return units.findIndex(u => String(u.id) === String(unitId)); }
     function getDisplayUnitId(unit) { return unit.id === "alpha" ? "基础" : unit.id; }
@@ -473,6 +476,10 @@
     function getSuggestedUnit() {
       if (!state.done.includes("alpha")) return getUnitById("alpha") || units[0];
       return getUnitById(state.todayUnit) || units[0];
+    }
+    function setAlphabetSample(sample, rerenderDock = false) {
+      currentAlphabetSample = Object.assign({}, currentAlphabetSample, sample);
+      if (rerenderDock) renderSpeakingDock();
     }
 
     function loadState() {
@@ -546,6 +553,10 @@
     }
     function startUnit(unitId) {
       currentUnit = getUnitById(unitId) || units[0];
+      if (currentUnit.id === "alpha" && currentUnit.letters?.length) {
+        const first = currentUnit.letters[0];
+        setAlphabetSample({ letter: first[0], lower: first[1], word: first[2], zh: first[3], emoji: first[4] });
+      }
       resetSpeakingState();
       activities = buildActivities(currentUnit); index = 0; state.todayUnit = currentUnit.id; saveState();
       showTab("study"); renderLessonList(); renderActivity();
@@ -631,6 +642,33 @@
       const text = speakingText();
       const dock = document.getElementById("speakingDock");
       if (!dock) return;
+      if (currentUnit.id === "alpha") {
+        dock.innerHTML = `
+          <div class="speaking-dock-head">
+            <div class="speaking-dock-title">字母跟读台</div>
+            <span class="tag">一个一个读</span>
+          </div>
+          <div class="word">${currentAlphabetSample.letter} ${currentAlphabetSample.lower}</div>
+          <div class="sentence-row"><p class="sentence">${currentAlphabetSample.emoji} ${currentAlphabetSample.word} · ${currentAlphabetSample.zh}</p></div>
+          <div class="dock-actions">
+            <button class="btn secondary" id="dockPlayBtn">读字母</button>
+            <button class="btn secondary" id="dockWordBtn">读单词</button>
+            <button class="btn" id="dockRecordBtn">${recorder && recorder.state === "recording" ? "停止录音" : "录音跟读"}</button>
+          </div>
+          ${renderComparePanel(text)}
+        `;
+        document.getElementById("dockPlayBtn").addEventListener("click", () => speak(currentAlphabetSample.letter));
+        document.getElementById("dockWordBtn").addEventListener("click", () => speak(currentAlphabetSample.word));
+        document.getElementById("dockRecordBtn").addEventListener("click", () => toggleRecord(currentAlphabetSample.letter, "dockRecordBtn"));
+        const playSampleBtn = document.getElementById("playSampleBtn");
+        if (playSampleBtn) playSampleBtn.addEventListener("click", () => speak(currentAlphabetSample.letter));
+        const playMineBtn = document.getElementById("playMineBtn");
+        if (playMineBtn) playMineBtn.addEventListener("click", () => document.getElementById("myRecordAudio")?.play?.());
+        const playCompareBtn = document.getElementById("playCompareBtn");
+        if (playCompareBtn) playCompareBtn.addEventListener("click", () => playCompare(currentAlphabetSample.letter));
+        document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), currentAlphabetSample.letter)));
+        return;
+      }
       dock.innerHTML = `
         <div class="speaking-dock-head">
           <div class="speaking-dock-title">固定跟读台</div>
@@ -659,13 +697,20 @@
         <div class="alphabet-tile">
           <div class="alphabet-letter">${item[0]} ${item[1]}</div>
           <div class="alphabet-word">${item[4]} <b>${item[2]}</b><br>${item[3]}</div>
+          <div class="alphabet-audio">
+            <button class="icon-speak" type="button" data-speak="${item[0]}" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">字母</button>
+            <button class="icon-speak" type="button" data-speak="${item[2]}" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">单词</button>
+          </div>
         </div>
       `).join("");
       document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">🔤</div><div class="pic-word">ABC</div><div class="q-badge">${activity.title}</div></div></div><div><div class="meaning">字母观察站</div><p class="sentence">先看大写和小写，再读读右边的小单词。</p><div class="alphabet-board">${board}</div></div></div>`;
+      const first = activity.letters[0];
+      if (first) setAlphabetSample({ letter: first[0], lower: first[1], word: first[2], zh: first[3], emoji: first[4] });
     }
     function renderAlphabetMatch(activity) {
-      lastUtterance = `${activity.upper} ${activity.lower}`;
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.upper}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">大小写配对</div><div class="word">${activity.upper}</div><p class="sentence">哪一个小写字母和 ${activity.upper} 是一对？</p><div class="q-hint">小提示：${activity.upper} is for ${activity.word}.</div></div></div><div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
+      lastUtterance = activity.upper;
+      setAlphabetSample({ letter: activity.upper, lower: activity.lower, word: activity.word, zh: "字母联想", emoji: activity.emoji });
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.upper}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">大小写配对</div><div class="word">${activity.upper}</div><p class="sentence">哪一个小写字母和 ${activity.upper} 是一对？</p><div class="q-hint">小提示：${activity.upper} is for ${activity.word}.</div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.upper}" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div><div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
       bindChoices(activity.lower);
     }
     function renderAlphabetOrder(activity) {
@@ -678,8 +723,9 @@
       document.getElementById("checkSentence").addEventListener("click", () => { const ok = selectedWords.join(" ") === activity.letters.join(" "); recordAnswer(ok, activity.letters.join("")); document.getElementById("feedback").textContent = ok ? "字母顺序对啦。" : "再看一眼字母顺序。"; });
     }
     function renderAlphabetSound(activity) {
-      lastUtterance = `${activity.letter} ${activity.lower} ${activity.word}`;
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div></div></div>`;
+      lastUtterance = activity.letter;
+      setAlphabetSample({ letter: activity.letter, lower: activity.lower, word: activity.word, zh: activity.zh, emoji: activity.emoji });
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.letter}" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div>`;
     }
     function renderActivity() {
       locked = false; selectedWords = [];
@@ -897,9 +943,18 @@
     document.getElementById("activity").addEventListener("click", e => {
       const btn = e.target.closest("[data-speak]");
       if (!btn) return;
+      if (btn.dataset.alphaLetter) {
+        setAlphabetSample({
+          letter: btn.dataset.alphaLetter,
+          lower: btn.dataset.alphaLower,
+          word: btn.dataset.alphaWord,
+          zh: btn.dataset.alphaZh,
+          emoji: btn.dataset.alphaEmoji
+        }, true);
+      }
       speak(btn.dataset.speak);
     });
-    document.getElementById("speakBtn").addEventListener("click", () => speak(lastUtterance || currentUnit.pattern));
+    document.getElementById("speakBtn").addEventListener("click", () => speak(currentUnit.id === "alpha" ? currentAlphabetSample.letter : (lastUtterance || currentUnit.pattern)));
     document.getElementById("recordBtn").addEventListener("click", toggleRecord);
     document.getElementById("nextBtn").addEventListener("click", () => { if (index >= activities.length - 1) finishUnit(); else { index += 1; renderActivity(); } });
     document.getElementById("closeModal").addEventListener("click", () => { document.getElementById("modal").classList.remove("show"); showTab("home"); });
