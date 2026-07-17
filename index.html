@@ -467,7 +467,14 @@
     let currentUnit = units[0], activities = [], index = 0, selectedWords = [], locked = false, lastUtterance = "";
     let recorder = null, chunks = [], lastRecordingUrl = "", lastRecordingText = "", speakingRewarded = false, currentSpeakingRating = 0, speakingRatingLocked = false;
     let currentAlphabetSample = { letter: "A", lower: "a", word: "apple", zh: "苹果", emoji: "🍎" };
-    function speakingText() { return currentUnit.id === "alpha" ? currentAlphabetSample.letter : currentUnit.pattern; }
+    const alphabetSpeechMap = {
+      A: "ay", B: "bee", C: "see", D: "dee", E: "ee", F: "ef", G: "jee", H: "aitch", I: "eye", J: "jay",
+      K: "kay", L: "el", M: "em", N: "en", O: "oh", P: "pee", Q: "cue", R: "ar", S: "ess", T: "tee",
+      U: "you", V: "vee", W: "double u", X: "ex", Y: "why", Z: "zee"
+    };
+    function getAlphabetSpeechText(letter) { return alphabetSpeechMap[String(letter || "").toUpperCase()] || String(letter || ""); }
+    function speakAlphabetLetter(letter) { speak(getAlphabetSpeechText(letter)); }
+    function speakingText() { return currentUnit.id === "alpha" ? getAlphabetSpeechText(currentAlphabetSample.letter) : currentUnit.pattern; }
     function getUnitById(unitId) { return units.find(u => String(u.id) === String(unitId)); }
     function getUnitIndex(unitId) { return units.findIndex(u => String(u.id) === String(unitId)); }
     function getDisplayUnitId(unit) { return unit.id === "alpha" ? "基础" : unit.id; }
@@ -657,16 +664,16 @@
           </div>
           ${renderComparePanel(text)}
         `;
-        document.getElementById("dockPlayBtn").addEventListener("click", () => speak(currentAlphabetSample.letter));
+        document.getElementById("dockPlayBtn").addEventListener("click", () => speakAlphabetLetter(currentAlphabetSample.letter));
         document.getElementById("dockWordBtn").addEventListener("click", () => speak(currentAlphabetSample.word));
-        document.getElementById("dockRecordBtn").addEventListener("click", () => toggleRecord(currentAlphabetSample.letter, "dockRecordBtn"));
+        document.getElementById("dockRecordBtn").addEventListener("click", () => toggleRecord(getAlphabetSpeechText(currentAlphabetSample.letter), "dockRecordBtn"));
         const playSampleBtn = document.getElementById("playSampleBtn");
-        if (playSampleBtn) playSampleBtn.addEventListener("click", () => speak(currentAlphabetSample.letter));
+        if (playSampleBtn) playSampleBtn.addEventListener("click", () => speakAlphabetLetter(currentAlphabetSample.letter));
         const playMineBtn = document.getElementById("playMineBtn");
         if (playMineBtn) playMineBtn.addEventListener("click", () => document.getElementById("myRecordAudio")?.play?.());
         const playCompareBtn = document.getElementById("playCompareBtn");
-        if (playCompareBtn) playCompareBtn.addEventListener("click", () => playCompare(currentAlphabetSample.letter));
-        document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), currentAlphabetSample.letter)));
+        if (playCompareBtn) playCompareBtn.addEventListener("click", () => playCompare(getAlphabetSpeechText(currentAlphabetSample.letter)));
+        document.querySelectorAll(".rate-btn").forEach(btn => btn.addEventListener("click", () => submitSpeakingRating(Number(btn.dataset.rate), getAlphabetSpeechText(currentAlphabetSample.letter))));
         return;
       }
       dock.innerHTML = `
@@ -698,8 +705,8 @@
           <div class="alphabet-letter">${item[0]} ${item[1]}</div>
           <div class="alphabet-word">${item[4]} <b>${item[2]}</b><br>${item[3]}</div>
           <div class="alphabet-audio">
-            <button class="icon-speak" type="button" data-speak="${item[0]}" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">字母</button>
-            <button class="icon-speak" type="button" data-speak="${item[2]}" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">单词</button>
+            <button class="icon-speak" type="button" data-speak="${item[0]}" data-speak-kind="letter" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">字母</button>
+            <button class="icon-speak" type="button" data-speak="${item[2]}" data-speak-kind="word" data-alpha-letter="${item[0]}" data-alpha-lower="${item[1]}" data-alpha-word="${item[2]}" data-alpha-zh="${item[3]}" data-alpha-emoji="${item[4]}">单词</button>
           </div>
         </div>
       `).join("");
@@ -710,7 +717,7 @@
     function renderAlphabetMatch(activity) {
       lastUtterance = activity.upper;
       setAlphabetSample({ letter: activity.upper, lower: activity.lower, word: activity.word, zh: "字母联想", emoji: activity.emoji });
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.upper}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">大小写配对</div><div class="word">${activity.upper}</div><p class="sentence">哪一个小写字母和 ${activity.upper} 是一对？</p><div class="q-hint">小提示：${activity.upper} is for ${activity.word}.</div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.upper}" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div><div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.upper}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">大小写配对</div><div class="word">${activity.upper}</div><p class="sentence">哪一个小写字母和 ${activity.upper} 是一对？</p><div class="q-hint">小提示：${activity.upper} is for ${activity.word}.</div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.upper}" data-speak-kind="letter" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-speak-kind="word" data-alpha-letter="${activity.upper}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="字母联想" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div><div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>`;
       bindChoices(activity.lower);
     }
     function renderAlphabetOrder(activity) {
@@ -725,7 +732,7 @@
     function renderAlphabetSound(activity) {
       lastUtterance = activity.letter;
       setAlphabetSample({ letter: activity.letter, lower: activity.lower, word: activity.word, zh: activity.zh, emoji: activity.emoji });
-      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.letter}" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div>`;
+      document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.letter}" data-speak-kind="letter" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-speak-kind="word" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div>`;
     }
     function renderActivity() {
       locked = false; selectedWords = [];
@@ -952,9 +959,19 @@
           emoji: btn.dataset.alphaEmoji
         }, true);
       }
+      if (btn.dataset.speakKind === "letter" && btn.dataset.alphaLetter) {
+        speakAlphabetLetter(btn.dataset.alphaLetter);
+        return;
+      }
       speak(btn.dataset.speak);
     });
-    document.getElementById("speakBtn").addEventListener("click", () => speak(currentUnit.id === "alpha" ? currentAlphabetSample.letter : (lastUtterance || currentUnit.pattern)));
+    document.getElementById("speakBtn").addEventListener("click", () => {
+      if (currentUnit.id === "alpha") {
+        speakAlphabetLetter(currentAlphabetSample.letter);
+        return;
+      }
+      speak(lastUtterance || currentUnit.pattern);
+    });
     document.getElementById("recordBtn").addEventListener("click", toggleRecord);
     document.getElementById("nextBtn").addEventListener("click", () => { if (index >= activities.length - 1) finishUnit(); else { index += 1; renderActivity(); } });
     document.getElementById("closeModal").addEventListener("click", () => { document.getElementById("modal").classList.remove("show"); showTab("home"); });
