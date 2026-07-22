@@ -376,6 +376,7 @@
       ["V", "v", "van", "小车", "🚐"], ["W", "w", "wind", "风", "🍃"], ["X", "x", "box", "盒子", "📦"],
       ["Y", "y", "yo-yo", "悠悠球", "🪀"], ["Z", "z", "zebra", "斑马", "🦓"]
     ];
+    const alphabetLookup = Object.fromEntries(alphabetPack.map(item => [item[0], item]));
 
     const units = [
       { id: "alpha", module: "Foundation", title: "Letters and Sounds", zh: "字母基础打底", reading: "A to Z", listening: "Alphabet chant", speaking: "Say the letters", writing: "Trace the letters", extend: "Find letters around you", pattern: "A a / B b / C c", reward: "字母启明星", letters: alphabetPack, words: alphabetPack.map(item => [`${item[0]} ${item[1]}`, item[3], `${item[0]} is for ${item[2]}.`]) },
@@ -573,12 +574,16 @@
         return [
           { type: "alphabet-board", letters: unit.letters.slice(0, 6), title: "先认识 A 到 F" },
           { type: "alphabet-match", upper: "A", lower: "a", options: ["a", "e", "g", "d"], word: "apple", emoji: "🍎" },
+          { type: "alphabet-hear", letter: "B", options: ["B", "D", "P", "R"] },
           { type: "alphabet-board", letters: unit.letters.slice(6, 12), title: "再认识 G 到 L" },
+          { type: "alphabet-hear", letter: "H", options: ["H", "N", "M", "K"] },
           { type: "alphabet-match", upper: "M", lower: "m", options: ["n", "m", "w", "h"], word: "milk", emoji: "🥛" },
           { type: "alphabet-board", letters: unit.letters.slice(12, 18), title: "继续认识 M 到 R" },
+          { type: "alphabet-hear", letter: "Q", options: ["Q", "O", "U", "G"] },
           { type: "alphabet-order", letters: ["A", "B", "C", "D", "E"] },
           { type: "alphabet-board", letters: unit.letters.slice(18, 26), title: "最后认识 S 到 Z" },
           { type: "alphabet-sound", letter: "C", lower: "c", word: "cat", zh: "小猫", emoji: "🐱" },
+          { type: "alphabet-hear", letter: "Z", options: ["S", "X", "Z", "Y"] },
           { type: "alphabet-order", letters: ["X", "Y", "Z"] },
           { type: "speaking", text: unit.pattern }
         ];
@@ -734,6 +739,36 @@
       setAlphabetSample({ letter: activity.letter, lower: activity.lower, word: activity.word, zh: activity.zh, emoji: activity.emoji });
       document.getElementById("activity").innerHTML = `<div class="flash"><div class="picture"><div class="picture-stack"><div class="q-emoji">${activity.emoji}</div><div class="pic-word">${activity.letter} ${activity.lower}</div><div class="q-badge">${activity.word}</div></div></div><div><div class="meaning">字母和单词</div><div class="word">${activity.letter} ${activity.lower}</div><p class="sentence">${activity.letter} is for ${activity.word}. ${activity.zh}</p><div class="alphabet-strip"><span class="letter-pill">${activity.letter}<small>大写</small></span><span class="letter-pill">${activity.lower}<small>小写</small></span></div><div class="alphabet-audio"><button class="icon-speak" type="button" data-speak="${activity.letter}" data-speak-kind="letter" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">字母</button><button class="icon-speak" type="button" data-speak="${activity.word}" data-speak-kind="word" data-alpha-letter="${activity.letter}" data-alpha-lower="${activity.lower}" data-alpha-word="${activity.word}" data-alpha-zh="${activity.zh}" data-alpha-emoji="${activity.emoji}">单词</button></div></div></div>`;
     }
+    function renderAlphabetHear(activity) {
+      const item = alphabetLookup[activity.letter];
+      if (!item) return;
+      const [letter, lower, word, zh, emoji] = item;
+      lastUtterance = getAlphabetSpeechText(letter);
+      setAlphabetSample({ letter, lower, word, zh, emoji });
+      document.getElementById("activity").innerHTML = `
+        <div class="flash">
+          <div class="picture">
+            <div class="picture-stack">
+              <div class="q-emoji">👂</div>
+              <div class="pic-word">${letter}</div>
+              <div class="q-badge">听音找字母</div>
+            </div>
+          </div>
+          <div>
+            <div class="meaning">耳朵小侦探</div>
+            <p class="sentence">先听一听字母发音，再选出正确的大写字母。</p>
+            <div class="q-hint">记忆小提示：${letter} is for ${word}，想一想 ${emoji} ${zh}。</div>
+            <div class="alphabet-audio">
+              <button class="icon-speak" type="button" data-speak="${letter}" data-speak-kind="letter" data-alpha-letter="${letter}" data-alpha-lower="${lower}" data-alpha-word="${word}" data-alpha-zh="${zh}" data-alpha-emoji="${emoji}">播放字母</button>
+              <button class="icon-speak" type="button" data-speak="${word}" data-speak-kind="word" data-alpha-letter="${letter}" data-alpha-lower="${lower}" data-alpha-word="${word}" data-alpha-zh="${zh}" data-alpha-emoji="${emoji}">播放单词</button>
+            </div>
+          </div>
+        </div>
+        <div class="choices" style="margin-top:12px">${activity.options.map(opt => `<button class="choice" data-answer="${opt}">${opt}</button>`).join("")}</div>
+      `;
+      bindChoices(letter);
+      setTimeout(() => speakAlphabetLetter(letter), 260);
+    }
     function renderActivity() {
       locked = false; selectedWords = [];
       const activity = activities[index]; const progress = Math.round(index / activities.length * 100);
@@ -747,6 +782,7 @@
       if (activity.type === "alphabet-match") renderAlphabetMatch(activity);
       if (activity.type === "alphabet-order") renderAlphabetOrder(activity);
       if (activity.type === "alphabet-sound") renderAlphabetSound(activity);
+      if (activity.type === "alphabet-hear") renderAlphabetHear(activity);
       if (activity.type === "card") renderCard(activity.item);
       if (activity.type === "listen") renderListen(activity.item);
       if (activity.type === "choice") renderChoice(activity.item);
